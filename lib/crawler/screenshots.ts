@@ -9,5 +9,5 @@ export async function saveScreenshot(page: Page, scanId: string, snapshotId: str
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${snapshotId}.png`);
   await page.screenshot({ path: file, fullPage: true });
-  return path.relative(process.cwd(), file);
+  return file.startsWith(process.cwd()) ? path.relative(process.cwd(), file) : file;
 }
