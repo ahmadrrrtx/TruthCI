@@ -1,149 +1,212 @@
 # TruthCI
 
-**TruthCI** is a Public Product Truth Engine for detecting drift and contradictions across public product surfaces: landing pages, docs, pricing pages, API documentation, changelogs, release notes, and developer examples.
+<p align="center">
+  <strong>Catch product contradictions before your users do.</strong>
+</p>
 
-> Catch product contradictions before your users do.
+<p align="center">
+  <a href="https://truth-ci.vercel.app/"><img alt="Live Demo" src="https://img.shields.io/badge/Live-Demo-7c3aed?style=for-the-badge"></a>
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=nextdotjs">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Ready-3178c6?style=for-the-badge&logo=typescript&logoColor=white">
+  <img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel">
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-Turso%20%2B%20Local-044a64?style=for-the-badge&logo=sqlite&logoColor=white">
+</p>
+
+**TruthCI** is a Public Product Truth Engine for detecting drift and contradictions across public product surfaces such as landing pages, pricing pages, documentation, API docs, changelogs, release notes, and developer examples.
 
 TruthCI crawls bounded public URLs, stores snapshots, computes deterministic diffs, detects rule-based contradictions, and uses AI only to explain evidence-backed findings.
 
+> AI is not the source of truth. TruthCI uses deterministic crawling, snapshots, diffs, and rules as the evidence layer. AI only summarizes and explains.
+
 ---
 
-## Table of Contents
+## Contents
 
-- [Product Summary](#product-summary)
+- [Overview](#overview)
+- [Live App](#live-app)
+- [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Vercel Deployment Status](#vercel-deployment-status)
-- [Core Flow](#core-flow)
+- [How TruthCI Works](#how-truthci-works)
 - [Tech Stack](#tech-stack)
 - [Database Schema](#database-schema)
-- [File Structure](#file-structure)
+- [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Local Development](#local-development)
-- [Deploy to GitHub and Vercel](#deploy-to-github-and-vercel)
+- [Deploying to Vercel](#deploying-to-vercel)
 - [GitHub OAuth Setup](#github-oauth-setup)
-- [Turso SQLite Setup for Vercel](#turso-sqlite-setup-for-vercel)
+- [Turso Setup](#turso-setup)
 - [Operational Notes](#operational-notes)
-- [Known MVP Constraints](#known-mvp-constraints)
+- [MVP Constraints](#mvp-constraints)
+- [Validation](#validation)
 
 ---
 
-## Product Summary
+## Overview
 
-Companies publish product information across many places. Over time, those sources drift.
+Companies publish product information across many surfaces. Over time, these sources drift apart.
 
-Example:
+Example contradiction:
 
-| Surface | Claim |
-|---|---|
+| Surface | Public Claim |
+| --- | --- |
 | Website | `Unlimited API requests` |
-| Pricing | `100k requests/month` |
-| Docs | `Rate limits apply` |
+| Pricing page | `100k requests/month` |
+| Documentation | `Rate limits apply` |
 | API behavior | `429 after 10k requests` |
 
-TruthCI detects this kind of trust-breaking inconsistency by combining:
+TruthCI helps teams detect this kind of trust-breaking inconsistency before users find it.
 
-- Public crawling
-- Snapshot storage
-- Deterministic diffs
-- Rule-based contradiction detection
-- AI-generated explanation and impact summaries
+---
 
-AI is **not** the source of truth. AI only explains deterministic findings.
+## Live App
+
+Production deployment:
+
+```txt
+https://truth-ci.vercel.app/
+```
+
+---
+
+## Key Features
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| GitHub OAuth login | Done | Powered by NextAuth |
+| Project creation | Done | User enters a public root URL |
+| Manual scans | Done | Bounded scan execution for MVP |
+| Public page crawling | Done | Uses Playwright-compatible Chromium on Vercel |
+| Snapshot storage | Done | Stores title, description, content, HTML, links, screenshot path |
+| Deterministic diffs | Done | Uses `diff` / jsdiff |
+| Rule-based contradictions | Done | Detects high-value contradiction patterns |
+| AI explanations | Done | Groq primary, Cerebras fallback |
+| Scan history | Done | Previous scans are stored per project |
+| Vercel deployment | Done | Uses Turso for durable SQLite persistence |
 
 ---
 
 ## Architecture
 
-```mermaid
-flowchart TD
-  U[User] --> UI[Next.js App Router UI]
-  UI --> AUTH[NextAuth GitHub OAuth]
-  UI --> API[Next.js API Routes]
+GitHub Mermaid diagrams can sometimes fail to render depending on labels and renderer support, so this README uses plain text diagrams for reliability.
 
-  API --> PROJECT[Project Service]
-  API --> SCAN[Scan Service]
+### System Architecture
 
-  SCAN --> CRAWLER[Playwright Crawler]
-  CRAWLER --> SNAP[Snapshot Extractor]
-  SNAP --> DB[(SQLite Database)]
-
-  SCAN --> DIFF[jsdiff Deterministic Diff Engine]
-  SCAN --> CONTRA[Rule-based Contradiction Engine]
-  SCAN --> AI[Groq AI Analysis]
-  AI --> FALLBACK[Cerebras Fallback]
-
-  DIFF --> REPORT[Report Service]
-  CONTRA --> REPORT
-  AI --> REPORT
-  FALLBACK --> REPORT
-  REPORT --> DB
-
-  DB --> UI
+```txt
++-------------------+
+|       User        |
++---------+---------+
+          |
+          v
++-------------------------------+
+| Next.js 15 App Router UI      |
+| Landing, dashboard, reports   |
++---------+---------------------+
+          |
+          v
++-------------------------------+
+| Next.js API Routes            |
+| Auth, projects, scans         |
++----+------------+-------------+
+     |            |
+     |            v
+     |     +--------------------+
+     |     | NextAuth GitHub    |
+     |     | OAuth              |
+     |     +--------------------+
+     |
+     v
++-------------------------------+
+| Application Services          |
+| Project, scan, report logic   |
++----+------------+-------------+
+     |            |
+     |            v
+     |     +--------------------+
+     |     | Playwright Crawler |
+     |     | Chromium runtime   |
+     |     +--------------------+
+     |
+     v
++-------------------------------+
+| Evidence Engines              |
+| jsdiff + rule contradictions  |
++----+------------+-------------+
+     |            |
+     |            v
+     |     +--------------------+
+     |     | AI Explanation     |
+     |     | Groq / Cerebras    |
+     |     +--------------------+
+     |
+     v
++-------------------------------+
+| SQLite Persistence Layer      |
+| Local SQLite or Turso/libSQL  |
++-------------------------------+
 ```
 
-### Deployment Architecture
+### Vercel Deployment Architecture
 
-```mermaid
-flowchart LR
-  Browser[Browser] --> Vercel[Vercel Next.js App]
-  Vercel --> GitHub[GitHub OAuth]
-  Vercel --> Turso[(Turso/libSQL SQLite)]
-  Vercel --> Groq[Groq API]
-  Vercel --> Cerebras[Cerebras API optional]
-  Vercel --> Chromium[@sparticuz/chromium + playwright-core]
+```txt
++-------------------+        +--------------------------+
+| Browser           | -----> | Vercel Next.js App       |
++-------------------+        +------------+-------------+
+                                      |
+        +-----------------------------+-----------------------------+
+        |                             |                             |
+        v                             v                             v
++---------------+             +---------------+             +----------------+
+| GitHub OAuth  |             | Turso SQLite  |             | Groq AI API    |
+| NextAuth      |             | Durable DB    |             | Explanations   |
++---------------+             +---------------+             +----------------+
+                                      |
+                                      v
+                              +----------------+
+                              | Chromium       |
+                              | playwright-core|
+                              +----------------+
 ```
 
 ---
 
-## Vercel Deployment Status
+## How TruthCI Works
 
-This repo has been optimized for Vercel.
+### Scan Flow
 
-Important engineering decision:
+```txt
+1. User signs in with GitHub
+2. User creates a project with a public URL
+3. User clicks Run Scan
+4. TruthCI crawls the root URL and prioritized same-origin links
+5. Extracted content is saved as snapshots
+6. Current snapshots are compared with the previous completed scan
+7. jsdiff produces deterministic changes
+8. Rule engine detects contradictions
+9. Groq generates summary, impact, and explanation
+10. If Groq fails, Cerebras is tried
+11. If AI fails completely, deterministic fallback text is used
+12. User views report and scan history
+```
 
-| Environment | Database Driver | Persistence | Notes |
-|---|---|---:|---|
-| Local development | `better-sqlite3` | Yes | Uses `./data/truthci.db` |
-| Vercel without Turso | `better-sqlite3` in `/tmp` | No | Works only as temporary demo data |
-| Vercel with Turso | `@libsql/client` | Yes | Recommended production deployment |
+### Evidence Pipeline
 
-Why Turso?
-
-Vercel serverless does not provide a durable writable filesystem for SQLite files. Turso/libSQL is SQLite-compatible and gives TruthCI durable SQLite persistence on Vercel while keeping local development on `better-sqlite3`.
-
----
-
-## Core Flow
-
-```mermaid
-sequenceDiagram
-  actor User
-  participant UI as Next.js UI
-  participant API as API Route
-  participant Scan as Scan Service
-  participant Crawl as Playwright Crawler
-  participant DB as SQLite/Turso
-  participant Diff as jsdiff
-  participant Rules as Contradiction Rules
-  participant AI as Groq/Cerebras
-
-  User->>UI: Login with GitHub
-  UI->>API: Create project URL
-  API->>DB: Save project
-  User->>UI: Run scan
-  UI->>API: POST /scan
-  API->>Scan: runProjectScan
-  Scan->>Crawl: Crawl bounded public pages
-  Crawl->>Scan: Extracted snapshots
-  Scan->>DB: Store snapshots
-  Scan->>DB: Load previous scan
-  Scan->>Diff: Compute deterministic changes
-  Scan->>Rules: Detect contradictions
-  Scan->>AI: Explain evidence
-  AI->>Scan: Summary, impact, explanation
-  Scan->>DB: Store report
-  UI->>DB: Load report
-  UI->>User: Show changes, contradictions, AI explanation
+```txt
+Public URL
+   |
+   v
+Crawler
+   |
+   v
+Snapshot
+   |
+   +--> Diff Engine ------> Structured Changes
+   |
+   +--> Rule Engine ------> Contradictions
+   |
+   +--> AI Layer ---------> Human Explanation
+   |
+   v
+Report
 ```
 
 ---
@@ -151,13 +214,13 @@ sequenceDiagram
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Frontend | Next.js 15 App Router, React, TypeScript |
 | Styling | TailwindCSS, local shadcn-style UI primitives |
 | Icons | Lucide React |
-| Auth | NextAuth v4, GitHub OAuth |
+| Authentication | NextAuth v4, GitHub OAuth |
 | Local database | SQLite with `better-sqlite3` |
-| Vercel database | Turso/libSQL SQLite via `@libsql/client` |
+| Vercel database | Turso/libSQL via `@libsql/client` |
 | Crawling | `playwright-core` with `@sparticuz/chromium` |
 | Diff engine | `diff` / jsdiff |
 | AI primary | Groq |
@@ -170,152 +233,177 @@ sequenceDiagram
 
 ### `users`
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | TEXT | Internal user ID |
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | TEXT | Internal TruthCI user ID |
 | `github_id` | TEXT | Unique GitHub profile ID |
-| `email` | TEXT | Nullable |
-| `name` | TEXT | Nullable |
-| `image` | TEXT | Nullable |
-| `created_at` | TEXT | Timestamp |
+| `email` | TEXT | User email, nullable |
+| `name` | TEXT | User display name, nullable |
+| `image` | TEXT | GitHub avatar URL, nullable |
+| `created_at` | TEXT | Creation timestamp |
 
 ### `projects`
 
-| Column | Type | Notes |
-|---|---|---|
+| Column | Type | Description |
+| --- | --- | --- |
 | `id` | TEXT | Project ID |
-| `user_id` | TEXT | Owner |
-| `name` | TEXT | Product/project name |
-| `root_url` | TEXT | Root URL to monitor |
-| `created_at` | TEXT | Timestamp |
+| `user_id` | TEXT | Owner user ID |
+| `name` | TEXT | Project or product name |
+| `root_url` | TEXT | Public root URL to monitor |
+| `created_at` | TEXT | Creation timestamp |
 
 ### `scans`
 
-| Column | Type | Notes |
-|---|---|---|
+| Column | Type | Description |
+| --- | --- | --- |
 | `id` | TEXT | Scan ID |
 | `project_id` | TEXT | Project being scanned |
-| `started_at` | TEXT | Start timestamp |
-| `completed_at` | TEXT | Completion timestamp |
-| `status` | TEXT | `pending`, `running`, `completed`, `failed` |
-| `error` | TEXT | Failure message |
+| `started_at` | TEXT | Scan start timestamp |
+| `completed_at` | TEXT | Scan completion timestamp |
+| `status` | TEXT | `pending`, `running`, `completed`, or `failed` |
+| `error` | TEXT | Failure message, nullable |
 
 ### `snapshots`
 
-| Column | Type | Notes |
-|---|---|---|
+| Column | Type | Description |
+| --- | --- | --- |
 | `id` | TEXT | Snapshot ID |
-| `scan_id` | TEXT | Parent scan |
+| `scan_id` | TEXT | Parent scan ID |
 | `url` | TEXT | Crawled URL |
 | `title` | TEXT | Page title |
 | `description` | TEXT | Meta description |
-| `content` | TEXT | Extracted product text |
+| `content` | TEXT | Extracted visible product text |
 | `html` | TEXT | Raw HTML excerpt |
-| `screenshot_path` | TEXT | Screenshot path, temporary on Vercel MVP |
-| `links_json` | TEXT | Extracted links |
-| `created_at` | TEXT | Timestamp |
+| `screenshot_path` | TEXT | Screenshot path; temporary on Vercel MVP |
+| `links_json` | TEXT | Extracted links as JSON |
+| `created_at` | TEXT | Creation timestamp |
 
 ### `reports`
 
-| Column | Type | Notes |
-|---|---|---|
+| Column | Type | Description |
+| --- | --- | --- |
 | `id` | TEXT | Report ID |
-| `scan_id` | TEXT | Unique parent scan |
-| `summary` | TEXT | AI/fallback summary |
-| `impact` | TEXT | AI/fallback impact |
-| `explanation` | TEXT | AI/fallback explanation |
-| `contradictions` | TEXT | JSON array |
-| `changes` | TEXT | JSON array |
-| `ai_provider` | TEXT | `groq`, `cerebras`, or null |
-| `created_at` | TEXT | Timestamp |
+| `scan_id` | TEXT | Unique parent scan ID |
+| `summary` | TEXT | AI or fallback summary |
+| `impact` | TEXT | AI or fallback impact estimate |
+| `explanation` | TEXT | AI or fallback explanation |
+| `contradictions` | TEXT | JSON array of contradictions |
+| `changes` | TEXT | JSON array of structured changes |
+| `ai_provider` | TEXT | `groq`, `cerebras`, or `null` |
+| `created_at` | TEXT | Creation timestamp |
 
 ---
 
-## File Structure
+## Project Structure
 
 ```txt
 truthci/
   app/
-    page.tsx                         # Landing page
-    layout.tsx                       # Root layout
-    globals.css                      # Tailwind/global styles
-    login/page.tsx                   # GitHub sign-in
-    dashboard/page.tsx               # Project dashboard
-    settings/page.tsx                # Account settings
+    page.tsx
+    layout.tsx
+    globals.css
+    login/
+      page.tsx
+    dashboard/
+      page.tsx
+    settings/
+      page.tsx
     projects/
-      new/page.tsx                   # Create project
-      [projectId]/page.tsx           # Project details
-      [projectId]/history/page.tsx   # Scan history
-      [projectId]/scans/[scanId]/page.tsx
+      new/
+        page.tsx
+      [projectId]/
+        page.tsx
+        history/
+          page.tsx
+        scans/
+          [scanId]/
+            page.tsx
     api/
-      auth/[...nextauth]/route.ts    # NextAuth route
-      projects/route.ts              # List/create projects
-      projects/[projectId]/route.ts  # Project details API
-      projects/[projectId]/scan/route.ts
-      scans/[scanId]/route.ts        # Scan result API
+      auth/
+        [...nextauth]/
+          route.ts
+      projects/
+        route.ts
+        [projectId]/
+          route.ts
+          scan/
+            route.ts
+      scans/
+        [scanId]/
+          route.ts
 
   components/
-    ui/                              # Local shadcn-style primitives
+    ui/
     app-shell.tsx
+    contradiction-card.tsx
     create-project-form.tsx
-    run-scan-button.tsx
+    diff-viewer.tsx
+    empty-state.tsx
+    logo.tsx
+    page-header.tsx
     project-card.tsx
     report-summary.tsx
-    contradiction-card.tsx
-    diff-viewer.tsx
+    run-scan-button.tsx
+    scan-status-badge.tsx
+    sign-in-button.tsx
+    sign-out-button.tsx
     snapshot-list.tsx
 
   lib/
     auth/
-      config.ts                      # NextAuth config
-      session.ts                     # Server session helpers
+      config.ts
+      session.ts
     db/
-      client.ts                      # Local SQLite + Turso adapter
-      migrate.ts                     # Schema migration runner
-      schema.sql                     # Database schema
-      queries/                       # Database query modules
+      client.ts
+      migrate.ts
+      schema.sql
+      queries/
     services/
       project-service.ts
       scan-service.ts
       report-service.ts
     crawler/
-      crawl.ts                       # Vercel-compatible Playwright crawler
-      extract.ts                     # DOM extraction
+      crawl.ts
+      extract.ts
       normalize-url.ts
       page-prioritizer.ts
       screenshots.ts
       types.ts
     diff/
-      compute-diff.ts                # jsdiff logic
+      compute-diff.ts
       normalize-content.ts
       types.ts
     contradictions/
-      claim-rules.ts                 # Rule-based claim extraction
+      claim-rules.ts
       detect-contradictions.ts
       types.ts
     ai/
-      groq.ts
-      cerebras.ts
       analyze-report.ts
+      cerebras.ts
+      groq.ts
       prompts.ts
       types.ts
     utils/
-      urls.ts
-      ids.ts
+      cn.ts
       dates.ts
       env.ts
+      ids.ts
+      urls.ts
 
   scripts/
     migrate.ts
     seed.ts
 
-  data/                              # Local SQLite database only
-  storage/screenshots/               # Local screenshots only
-  public/logo.svg
-  vercel.json                        # Vercel scan function settings
+  public/
+    logo.svg
+
   .env.example
+  .gitignore
+  next.config.ts
   package.json
   README.md
+  tsconfig.json
+  vercel.json
 ```
 
 ---
@@ -325,32 +413,32 @@ truthci/
 ### Required on Vercel
 
 | Variable | Required | Example | Notes |
-|---|---:|---|---|
-| `NEXTAUTH_URL` | Yes | `https://your-app.vercel.app` | Must match deployed URL |
-| `NEXTAUTH_SECRET` | Yes | generated secret | Generate with `openssl rand -base64 32` |
-| `GITHUB_CLIENT_ID` | Yes | `Ov23...` | From GitHub OAuth app |
-| `GITHUB_CLIENT_SECRET` | Yes | `github_pat...` | From GitHub OAuth app |
-| `TURSO_DATABASE_URL` | Yes for durable Vercel | `libsql://truthci-xxx.turso.io` | Turso database URL |
-| `TURSO_AUTH_TOKEN` | Yes for durable Vercel | `eyJ...` | Turso database token |
+| --- | --- | --- | --- |
+| `NEXTAUTH_URL` | Yes | `https://truth-ci.vercel.app` | Must match your deployed app URL |
+| `NEXTAUTH_SECRET` | Yes | Generated random secret | Generate with `openssl rand -base64 32` |
+| `GITHUB_CLIENT_ID` | Yes | `Ov23...` | GitHub OAuth app client ID |
+| `GITHUB_CLIENT_SECRET` | Yes | `...` | GitHub OAuth app client secret |
+| `TURSO_DATABASE_URL` | Yes | `libsql://truthci-xxx.turso.io` | Durable SQLite database URL |
+| `TURSO_AUTH_TOKEN` | Yes | `eyJ...` | Turso database auth token |
 
 ### Recommended on Vercel
 
 | Variable | Required | Recommended Value | Notes |
-|---|---:|---|---|
-| `GROQ_API_KEY` | Recommended | your Groq key | Enables primary AI explanations |
-| `GROQ_MODEL` | No | `llama-3.1-70b-versatile` | Can be changed if model availability changes |
-| `CEREBRAS_API_KEY` | Optional | your Cerebras key | AI fallback |
-| `CEREBRAS_MODEL` | No | `llama3.1-70b` | Optional fallback model |
-| `CRAWL_MAX_PAGES` | No | `5` | Keep low on Vercel MVP |
-| `CRAWL_PAGE_TIMEOUT_MS` | No | `12000` | Keep scans under function limits |
-| `SCREENSHOT_DIR` | No | `/tmp/truthci-screenshots` | Vercel temporary filesystem |
+| --- | --- | --- | --- |
+| `GROQ_API_KEY` | Recommended | `gsk_...` | Enables primary AI explanations |
+| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | Groq chat model |
+| `CEREBRAS_API_KEY` | Optional | `...` | AI fallback provider |
+| `CEREBRAS_MODEL` | No | `llama3.1-70b` | Cerebras fallback model |
+| `CRAWL_MAX_PAGES` | No | `5` | Keep low for Vercel serverless |
+| `CRAWL_PAGE_TIMEOUT_MS` | No | `12000` | Per-page crawl timeout |
+| `SCREENSHOT_DIR` | No | `/tmp/truthci-screenshots` | Temporary filesystem path on Vercel |
 
-### Local only
+### Local Only
 
 | Variable | Required | Default | Notes |
-|---|---:|---|---|
-| `DATABASE_PATH` | No | `./data/truthci.db` | Local SQLite file |
-| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Optional | blank | Use if local Chromium cannot launch |
+| --- | --- | --- | --- |
+| `DATABASE_PATH` | No | `./data/truthci.db` | Local SQLite file path |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Optional | Blank | Use a local Chrome/Chromium binary if needed |
 
 ---
 
@@ -363,13 +451,13 @@ npm run db:migrate
 npm run dev
 ```
 
-Then open:
+Open:
 
 ```txt
 http://localhost:3000
 ```
 
-Local scans use `@sparticuz/chromium`. If Chromium does not launch on your local machine, set:
+If local Chromium cannot launch, set:
 
 ```env
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/google-chrome
@@ -380,60 +468,36 @@ Examples:
 ```txt
 macOS: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 Linux: /usr/bin/google-chrome
+Windows: C:\Program Files\Google\Chrome\Application\chrome.exe
 ```
 
 ---
 
-## Deploy to GitHub and Vercel
+## Deploying to Vercel
 
-### 1. Create a GitHub repository
-
-Go to GitHub and create an empty repository, for example:
-
-```txt
-truthci
-```
-
-Do not initialize with README if this workspace already has files.
-
-### 2. Commit the code locally
+### 1. Push to GitHub
 
 ```bash
 git init
 git add .
 git commit -m "Initial TruthCI MVP"
-```
-
-### 3. Connect local repo to GitHub
-
-Replace `YOUR_GITHUB_USERNAME` with your username or org:
-
-```bash
 git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/truthci.git
+git remote add origin https://github.com/YOUR_USERNAME/TruthCI.git
 git push -u origin main
 ```
 
-### 4. Import project into Vercel
+### 2. Import into Vercel
 
-1. Go to [https://vercel.com/new](https://vercel.com/new)
-2. Select the `truthci` GitHub repository
-3. Framework should auto-detect as **Next.js**
-4. Build command: `npm run build`
-5. Install command: `npm install`
-6. Output directory: leave empty/default
-7. Add environment variables listed below
-8. Click **Deploy**
+1. Go to `https://vercel.com/new`
+2. Select the GitHub repository
+3. Framework: `Next.js`
+4. Install command: `npm install`
+5. Build command: `npm run build`
+6. Output directory: leave default
+7. Add environment variables
+8. Deploy
 
-### 5. Add Vercel environment variables
-
-In Vercel:
-
-```txt
-Project → Settings → Environment Variables
-```
-
-Add these exact keys:
+### 3. Required Vercel Environment Variables
 
 ```env
 NEXTAUTH_URL=https://YOUR-VERCEL-DOMAIN.vercel.app
@@ -443,7 +507,7 @@ GITHUB_CLIENT_SECRET=PASTE_GITHUB_CLIENT_SECRET
 TURSO_DATABASE_URL=PASTE_TURSO_DATABASE_URL
 TURSO_AUTH_TOKEN=PASTE_TURSO_AUTH_TOKEN
 GROQ_API_KEY=PASTE_GROQ_API_KEY
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.3-70b-versatile
 CRAWL_MAX_PAGES=5
 CRAWL_PAGE_TIMEOUT_MS=12000
 SCREENSHOT_DIR=/tmp/truthci-screenshots
@@ -456,40 +520,32 @@ CEREBRAS_API_KEY=PASTE_CEREBRAS_API_KEY
 CEREBRAS_MODEL=llama3.1-70b
 ```
 
-### 6. Redeploy after setting env vars
-
-After adding environment variables:
-
-```txt
-Vercel → Project → Deployments → latest deployment → Redeploy
-```
+After changing environment variables, redeploy from the Vercel dashboard.
 
 ---
 
 ## GitHub OAuth Setup
 
-1. Go to GitHub:
+Create a GitHub OAuth app:
 
 ```txt
-Settings → Developer settings → OAuth Apps → New OAuth App
+GitHub Settings -> Developer settings -> OAuth Apps -> New OAuth App
 ```
 
-2. Fill in:
-
 | Field | Value |
-|---|---|
+| --- | --- |
 | Application name | `TruthCI` |
 | Homepage URL | `https://YOUR-VERCEL-DOMAIN.vercel.app` |
 | Authorization callback URL | `https://YOUR-VERCEL-DOMAIN.vercel.app/api/auth/callback/github` |
 
-3. Copy the generated values into Vercel:
+Then add these to Vercel:
 
 ```env
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 ```
 
-4. Important: if you later add a custom domain, update both:
+If you later add a custom domain, update both:
 
 ```env
 NEXTAUTH_URL=https://your-custom-domain.com
@@ -503,64 +559,37 @@ https://your-custom-domain.com/api/auth/callback/github
 
 ---
 
-## Turso SQLite Setup for Vercel
+## Turso Setup
 
-TruthCI needs durable SQLite on Vercel. Use Turso/libSQL.
+TruthCI uses Turso/libSQL for durable SQLite persistence on Vercel.
 
-### Option A: Turso CLI
-
-Install and authenticate:
+### Turso CLI
 
 ```bash
 curl -sSfL https://get.tur.so/install.sh | bash
 turso auth login
-```
-
-Create database:
-
-```bash
 turso db create truthci
-```
-
-Get database URL:
-
-```bash
 turso db show truthci --url
-```
-
-Create auth token:
-
-```bash
 turso db tokens create truthci
 ```
 
-Add to Vercel:
+Add the resulting values to Vercel:
 
 ```env
 TURSO_DATABASE_URL=libsql://...
 TURSO_AUTH_TOKEN=...
 ```
 
-### Option B: Turso dashboard
-
-1. Create a Turso account
-2. Create a database named `truthci`
-3. Copy database URL
-4. Create database token
-5. Add both to Vercel env vars
-
-TruthCI auto-runs schema creation from `lib/db/schema.sql` on first authenticated usage/API call.
+TruthCI automatically runs schema creation from `lib/db/schema.sql` on first authenticated usage/API call.
 
 ---
 
 ## Operational Notes
 
-### Crawler limits
-
-Vercel scan execution is intentionally bounded:
+### Crawler Limits
 
 | Setting | Default on Vercel |
-|---|---:|
+| --- | --- |
 | Max pages per scan | `5` |
 | Page timeout | `12000ms` |
 | Function max duration | `60s` |
@@ -568,21 +597,34 @@ Vercel scan execution is intentionally bounded:
 The crawler only follows same-origin links and prioritizes URLs containing:
 
 ```txt
-pricing, docs, documentation, api, developers, changelog, releases, updates, plans, features, security, terms, limits, support, status
+pricing, docs, documentation, api, developers, changelog, releases,
+updates, plans, features, security, terms, limits, support, status
 ```
 
-### SSRF protections
+### Bot Protection
 
-TruthCI rejects obvious unsafe crawl targets:
+Some large websites, including sites behind Cloudflare or custom anti-bot systems, may return pages like:
+
+```txt
+Just a moment...
+Checking your browser...
+Verify you are human...
+```
+
+TruthCI treats those as blocked crawl targets rather than valid product content.
+
+### SSRF Protections
+
+TruthCI rejects obvious unsafe targets:
 
 - non-HTTP protocols
 - localhost
 - private IP ranges
 - metadata IP `169.254.169.254`
-- common auth/checkout paths
-- asset files like PDFs, images, videos, CSS, JS, ZIPs
+- common auth and checkout paths
+- asset files such as PDFs, images, videos, CSS, JS, and ZIP files
 
-### AI failure behavior
+### AI Failure Behavior
 
 Reports do not depend on AI availability.
 
@@ -594,14 +636,14 @@ If Groq fails:
 
 ---
 
-## Known MVP Constraints
+## MVP Constraints
 
 | Constraint | Current MVP Behavior | Future Upgrade |
-|---|---|---|
+| --- | --- | --- |
 | Scheduled scans | Manual scans only | Vercel Cron or background worker |
 | Screenshot persistence on Vercel | Temporary `/tmp` path | Vercel Blob or S3 |
 | Long crawls | Bounded to 5 pages on Vercel | Queue/background worker |
-| Complex semantic contradictions | Rule-based only | More claim rules, not vector DB yet |
+| Complex semantic contradictions | Rule-based only | More claim rules and configurable checks |
 | Team management | Not included | Add organizations later |
 | Billing | Not included | Add after validation |
 
@@ -609,11 +651,21 @@ If Groq fails:
 
 ## Validation
 
-The current project validates with:
+Run:
 
 ```bash
 npm run typecheck
 npm run build
 ```
 
-The app builds successfully with Next.js 15 and is prepared for Vercel deployment.
+Expected result:
+
+```txt
+Compiled successfully
+```
+
+---
+
+## License
+
+This MVP is currently private/proprietary unless a license is added.
