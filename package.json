@@ -1,0 +1,45 @@
+{
+  "name": "truthci",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TruthCI - Public Product Truth Engine",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "vercel-build": "next build"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.3",
+    "@sparticuz/chromium": "^147.0.0",
+    "@tailwindcss/postcss": "latest",
+    "better-sqlite3": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "diff": "latest",
+    "lucide-react": "latest",
+    "nanoid": "latest",
+    "next": "^15.5.19",
+    "next-auth": "^4.24.11",
+    "playwright-core": "^1.60.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "tailwind-merge": "latest",
+    "tailwindcss": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

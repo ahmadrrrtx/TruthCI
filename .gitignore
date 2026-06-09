@@ -1,0 +1,17 @@
+node_modules
+.next
+.env
+.env*.local
+.DS_Store
+*.log
+.cache
+.npm
+
+# Local generated data
+data/*.db
+data/*.db-shm
+data/*.db-wal
+storage/screenshots
+
+# TypeScript / tooling
+tsconfig.tsbuildinfo

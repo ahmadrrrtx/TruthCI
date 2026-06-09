@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "app/api/projects/[projectId]/scan/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
