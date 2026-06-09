@@ -7,7 +7,7 @@ export async function callGroq(messages: Array<{ role: string; content: string }
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: getEnv("GROQ_MODEL", "llama-3.1-70b-versatile"),
+      model: getEnv("GROQ_MODEL", "llama-3.3-70b-versatile"),
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages
